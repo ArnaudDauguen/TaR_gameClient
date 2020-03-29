@@ -6,8 +6,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import AI.Dijkstra;
 import DTO.Dungeon;
 import DTO.Ressources;
+import DTO.RessourcesFull;
+import beans.Monster;
+import beans.Stuff;
+import beans.Terrain;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -86,7 +91,7 @@ public class window {
 	private Dungeon currentDungeon;
 	
 	//DTO
-	private Ressources ressources;
+	private RessourcesFull ressources;
 	
 	
 	/**
@@ -115,7 +120,43 @@ public class window {
 	}
 	
 	private void simulate() {
+		int entranceTerrainId = 1; //default wall id is 1
+		for(Terrain t : ressources.getTerrains()) {
+			if(t.getName().equals("entrance")) {
+				entranceTerrainId = t.getId();
+				break;
+			}
+		}
+		int entranceCaseId = -1;
+		for(int i = 0; i < currentDungeon.getCases().size(); i++) {
+			if(currentDungeon.getCases().get(i) == entranceTerrainId) {
+				entranceCaseId = i;
+				break;
+			}
+		}
+		int throneTerrainId = 3; //default wall id is 1
+		for(Terrain t : ressources.getTerrains()) {
+			if(t.getName().equals("throne")) {
+				throneTerrainId = t.getId();
+				break;
+			}
+		}
+		if(entranceCaseId == -1)
+			return;
 		
+		//create AI and start
+		new Dijkstra(
+			entranceCaseId,
+			throneTerrainId,
+			currentDungeon.getSize(),
+			(ArrayList<Integer>) currentDungeon.getStuff(),
+			(ArrayList<Integer>) currentDungeon.getCases(),
+			dungeonMapButtons,
+			(ArrayList<Terrain>) ressources.getTerrains(),
+			(ArrayList<Monster>) ressources.getMonsters(),
+			(ArrayList<Stuff>) ressources.getStuffs(),
+			timeFailedTxtValue
+		);
 	}
 	
 	private void changeDungeon(int change) {
@@ -161,8 +202,10 @@ public class window {
 	private boolean loadDatas() {
 		try {
 			// GET ressources
-			HttpURLConnection con = createApiRequest("GET", "http://localhost:8080/ressources/ids", new HashMap<>());
+			HttpURLConnection con = createApiRequest("GET", "http://localhost:8080/ressources", new HashMap<>());
 			int status = con.getResponseCode();
+			if(status != 200) 
+				return false;
 			InputStream iStream = con.getInputStream();
 			InputStreamReader reader = new InputStreamReader(iStream);
 			BufferedReader in = new BufferedReader(reader);
@@ -174,11 +217,13 @@ public class window {
 			in.close();
 			con.disconnect();
 			ObjectMapper objectMapper = new ObjectMapper();
-			ressources = objectMapper.readValue(content.toString(), Ressources.class);
+			ressources = objectMapper.readValue(content.toString(), RessourcesFull.class);
 
 			// GET dungeons
 			HttpURLConnection con2 = createApiRequest("GET", "http://localhost:8080/dungeons/", new HashMap<>());
 			int status2 = con2.getResponseCode();
+			if(status2 != 200)
+				return false;
 			InputStream iStream2 = con2.getInputStream();
 			InputStreamReader reader2 = new InputStreamReader(iStream2);
 			BufferedReader in2 = new BufferedReader(reader2);

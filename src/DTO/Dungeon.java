@@ -1,5 +1,6 @@
 package DTO;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,23 @@ public class Dungeon {
 	@JsonIgnore
 	private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
+	
+	public static ArrayList<Integer> getNeighbourCaseIds(int posCaseId, int mapWidth, int mapHeight) {
+		ArrayList<Integer> positions = new ArrayList<>();
+
+		if(posCaseId +1 < mapHeight * mapWidth && (posCaseId +1) % mapWidth != 0) 
+			positions.add(posCaseId +1);
+		if(posCaseId -1 >= 0 && (posCaseId -1) % mapWidth != mapWidth -1) 
+			positions.add(posCaseId -1);
+		if(posCaseId + mapWidth < mapHeight * mapHeight)
+			positions.add(posCaseId + mapWidth);
+		if(posCaseId - mapWidth >= 0)
+			positions.add(posCaseId - mapWidth);
+		
+		return positions;
+	}
+	
+	
 	@JsonProperty("name")
 	public String getName() {
 		return name;
