@@ -3,7 +3,6 @@ package beans;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.util.HashMap;
 import java.util.Map;
 
 public class CreateApiRequest {
@@ -31,6 +30,24 @@ public class CreateApiRequest {
         con.setRequestProperty("Content-Type", "application/json");
         
 		this.con = con;
+		/*
+        POST write body
+        con.getOutputStream().write(jsonBodyString.getBytes());
+        */
+        
+        /*
+		GET Read response
+		int status = con.getResponseCode();
+		BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+		String inputLine;
+		StringBuffer content = new StringBuffer();
+		while ((inputLine = in.readLine()) != null) {
+		    content.append(inputLine);
+		}
+		in.close();
+		con.disconnect();
+		String rep = content.toString();
+		*/
 		
 	}
 	public HttpURLConnection getCon() {return con;}

@@ -5,12 +5,9 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -23,10 +20,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import DTO.Dungeon;
-import beans.*;
+import beans.CreateApiRequest;
+import beans.Monster;
+import beans.Stuff;
+import beans.Terrain;
 
 public class Dijkstra {
-	
+
 	private int entranceCaseId, weight = 0, size = 10, throneTerrainId = 3, totalDamage = 0, framePerSecond = 30, aiHp, defaultAiHp = 100, dungeonId = 0;
 	private ArrayList<Integer> path, map, weightMap, aiStuff;
 	private ArrayList<Terrain> terrains;
@@ -37,9 +37,10 @@ public class Dijkstra {
 	private Predicate<Integer> byHaventWalkedBefore = caseId -> !path.contains(caseId);
 	private ImageIcon playerIcon;
 	private JTextField nbFails;
-	
-	
-	public Dijkstra(int entranceCaseId, int throneTerrainId, int size, ArrayList<Integer> aiStuff, ArrayList<Integer> map, ArrayList<JButton> btnMap, ArrayList<Terrain> terrains, ArrayList<Monster> monsters, ArrayList<Stuff> stuffList, JTextField nbFails, int dungeonId) {
+	private JTextField errorTextField;
+
+
+	public Dijkstra(int entranceCaseId, int throneTerrainId, int size, ArrayList<Integer> aiStuff, ArrayList<Integer> map, ArrayList<JButton> btnMap, ArrayList<Terrain> terrains, ArrayList<Monster> monsters, ArrayList<Stuff> stuffList, JTextField nbFails, JTextField errorTextField, int dungeonId) {
 		this.entranceCaseId = entranceCaseId;
 		this.throneTerrainId = throneTerrainId;
 		this.size = size;
@@ -52,10 +53,16 @@ public class Dijkstra {
 		this.btnMap = btnMap;
 		this.nbFails = nbFails;
 		this.dungeonId = dungeonId;
+		this.errorTextField = errorTextField;
 
 		initialize();
-		
+
 		//Main AI loop
+		start();
+
+	}
+	
+	public void start() {
 		new Thread(new Runnable() {
 			public void run() {
 				boolean ended = false;
@@ -73,20 +80,18 @@ public class Dijkstra {
 				}
 			}
 		}).start();
-		
 	}
-	
+
 	private void initialize() {
 		for(int i = 0; i < size * size; i++)
 			weightMap.add(0);
-		
+
 		String path = "ressources/player.png";
 		String pathNotFound = "ressources/notFound.png";
 		File f = new File(path);
 		playerIcon = f.exists() ? new ImageIcon(path) : new ImageIcon(pathNotFound);
-		
+
 		//calculate damage dealt
-		//TODO check why total = 0 ??
 		String[] damageMultiplier = {"sword", "bow", "magic"};
 		for(int stuffId : aiStuff) {
 			for(Stuff stuff : stuffs) {
@@ -96,11 +101,11 @@ public class Dijkstra {
 			}
 		}
 		if(totalDamage == 0) {
-			System.out.println("Some equipements are missing, AI will figth in godmode");
+			errorTextField.setText("Some equipements missing, AI is now God");
 			totalDamage = Integer.MAX_VALUE;
 		}
 	}
-	
+
 	// create a path
 	private boolean generateRoad() throws Exception {
 		aiHp = defaultAiHp;
@@ -109,7 +114,7 @@ public class Dijkstra {
 		Icon lastCaseIcon = btnMap.get(path.get(0)).getIcon();
 		while(!pathComplete) {
 			int lastPathSize = path.size();
-			
+
 			//mooving
 			int lastCaseTraveled = path.get(path.size() -1);
 			ArrayList<Integer> neighbour = Dungeon.getNeighbourCaseIds(lastCaseTraveled, size, size);
@@ -124,11 +129,11 @@ public class Dijkstra {
 			int lowestWeight = weightMap.get(neighbour.get(0));
 			neighbour = (ArrayList<Integer>) neighbour.stream().filter(caseId -> weightMap.get(caseId) <= lowestWeight).collect(Collectors.toList());
 			int newCaseIdToTravel = neighbour.get((int) Math.floor(Math.random() * neighbour.size()));
-			
-			
+
+
 			path.add(newCaseIdToTravel);
 			lastCaseIcon = moovePlayerIcon(lastCaseIcon, newCaseIdToTravel);
-			
+
 			//fight
 			if(map.get(newCaseIdToTravel) > 999 && map.get(newCaseIdToTravel) < 3000) {
 				//start new path is enemy never met
@@ -138,9 +143,9 @@ public class Dijkstra {
 				ArrayList<Monster> potentialEnemies = (ArrayList<Monster>) monsters.stream().filter(m -> {
 					if(m.getId() >= map.get(newCaseIdToTravel) && m.getId() <= map.get(newCaseIdToTravel)) // to check if equals
 						return true;
-				return false;}
-				).collect(Collectors.toList());
-				
+					return false;}
+						).collect(Collectors.toList());
+
 				int enemyHp = 100;
 				int enemyAttack = 10;
 				if(potentialEnemies.size() != 0) {
@@ -149,12 +154,13 @@ public class Dijkstra {
 				}
 
 				//combat
+				int bkpEnemyHp = enemyHp;
 				do{
 					weight += (Math.floor(enemyHp /10)); //weigth +1 per 10 hp
 					enemyHp -= totalDamage;
 					//check if enemy died before taking damage
 					if(enemyHp > 0) {
-						aiHp -= enemyAttack;
+						aiHp -= Math.floor(enemyAttack * ((float) enemyHp / (float) bkpEnemyHp));
 						if(aiHp <= 0) {
 							pathComplete = true;
 							weight += 10000;
@@ -162,9 +168,9 @@ public class Dijkstra {
 						}
 					}
 				}while(enemyHp > 0);
-				
+
 			}
-			
+
 
 			//check for throne
 			if(map.get(newCaseIdToTravel) == throneTerrainId) {
@@ -173,19 +179,19 @@ public class Dijkstra {
 				response = true;
 				break;
 			}
-			
-			
-			
-			
-			
+
+
+
+
+
 			Thread.sleep(1000/framePerSecond);
-			
+
 			//check if path did not change
 			if(path.size() == lastPathSize) {
 				pathComplete = true;
 			}
 		}
-		
+
 		//apply weigth
 		if(weight != -1) {
 			for(int caseId : path) {
@@ -198,35 +204,35 @@ public class Dijkstra {
 				weightMap.set(caseId, weight);
 			}
 		}
-		
+
 		//save path
-		System.out.println(savePath() ? "Path saved" : "Cannot save path");
+		errorTextField.setText(savePath() ? "Path saved" : "Cannot save path");
 		return response;
 	}
-	
-	
-	
+
+
+
 	private Icon moovePlayerIcon(Icon lastCaseIcon, int newCaseIdToTravel) {
 		Icon tmpIcon = btnMap.get(newCaseIdToTravel).getIcon();
 		btnMap.get(newCaseIdToTravel).setIcon(playerIcon);
 		btnMap.get(path.get(path.size()-2)).setIcon(lastCaseIcon);
 		lastCaseIcon = tmpIcon;
-		
+
 		btnMap.get(newCaseIdToTravel).revalidate();
 		btnMap.get(newCaseIdToTravel).repaint();
-		
+
 		return lastCaseIcon;
 	}
-	
-	
-	
+
+
+
 	private void updateUi(Icon lastCaseIcon) {
 		nbFails.setText(String.valueOf(Integer.parseInt(nbFails.getText()) +1));
 		// rerender lastCase
 		btnMap.get(path.get(path.size()-1)).setIcon(lastCaseIcon);
 	}
-	
-	
+
+
 	private boolean savePath() {
 		try {
 			//convert DTO to JSON string
@@ -237,21 +243,24 @@ public class Dijkstra {
 			try {
 				HttpURLConnection con = new CreateApiRequest("POST", "http://localhost:8080/dungeons/" + dungeonId + "/path", new HashMap<>()).getCon();
 				con.getOutputStream().write(jsonString.getBytes());
-				
+
 				//read response
 				int status = con.getResponseCode();
+				if(!(status >= 200 && status < 300)) {
+					return false;
+				}
 				InputStream inStream = con.getInputStream();
 				InputStreamReader inStreamReader = new InputStreamReader(inStream);
 				BufferedReader in = new BufferedReader(inStreamReader);
 				String inputLine;
 				StringBuffer content = new StringBuffer();
 				while ((inputLine = in.readLine()) != null) {
-				    content.append(inputLine);
+					content.append(inputLine);
 				}
 				in.close();
 				con.disconnect();
-		        
-		        
+
+
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -263,8 +272,8 @@ public class Dijkstra {
 		}
 		return true;
 	}
-	
-	
+
+
 	public void printWeightMap() {
 		System.out.println("new weight : " + weight);
 		for(int x = 0; x < size; x++) {
@@ -275,8 +284,8 @@ public class Dijkstra {
 		}
 		System.out.println();
 	}
-	
-	
+
+
 	public ArrayList<Integer> getPath() {return path;}
 	public void setPath(ArrayList<Integer> path) {this.path = path;}
 	public ArrayList<Integer> getWeightMap() {return weightMap;}
@@ -287,5 +296,5 @@ public class Dijkstra {
 	public void setTerrains(ArrayList<Terrain> terrains) {this.terrains = terrains;}
 	public ArrayList<Monster> getMonsters() {return monsters;}
 	public void setMonsters(ArrayList<Monster> monsters) {this.monsters = monsters;}
-	
+
 }

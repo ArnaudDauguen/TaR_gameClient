@@ -1,50 +1,35 @@
 package UI;
 
+import java.awt.BorderLayout;
 import java.awt.EventQueue;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import AI.Dijkstra;
 import DTO.Dungeon;
-import DTO.Ressources;
 import DTO.RessourcesFull;
+import beans.CreateApiRequest;
 import beans.Monster;
 import beans.Stuff;
 import beans.Terrain;
-
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import java.awt.BorderLayout;
-import java.awt.Button;
-import java.awt.Color;
-
-import javax.swing.JTextField;
-import javax.swing.border.LineBorder;
-
-import javax.imageio.stream.ImageInputStream;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import java.awt.GridLayout;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import javax.swing.JLabel;
-import java.awt.event.ActionListener;
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.awt.event.ActionEvent;
 
 
 
@@ -59,6 +44,7 @@ public class window {
 	private JPanel centerPanel = new JPanel();
 	private JPanel centerTopPanel = new JPanel();
 	private JPanel centerBottomPanel = new JPanel();
+	//disabled
 	private JPanel legendPanel = new JPanel();
 
 	private JButton previousDungeonBtn = new JButton("<");
@@ -72,13 +58,10 @@ public class window {
 	private JTextField creatorTxtValue;
 	private JTextField timeFailedTxtValue;
 	private JTextField difficultyTxtValue;
-	private JTextField stuffsTxtValue;
-	private JTextField lvlDiffTxtValue;
+	private JTextField errorTextField;
 	
 	//datas
 	private ImageIcon imgNotFound = new ImageIcon("ressources/notFound.png");
-	private ImageIcon imgIA = new ImageIcon("ressources/player.png");
-	private ImageIcon currentIcon = imgNotFound;
 	private ArrayList<ImageIcon> terrainIcon = new ArrayList<>();
 	private ArrayList<ImageIcon> monsterIcon = new ArrayList<>();
 	private ArrayList<ImageIcon> otherIcon = new ArrayList<>();
@@ -115,7 +98,7 @@ public class window {
 	 */
 	public window() {
 		initialize();
-		loadDatas(); //TODO if false write error message (API not responding)
+		loadDatas();
 		installMap();
 	}
 	
@@ -156,6 +139,7 @@ public class window {
 			(ArrayList<Monster>) ressources.getMonsters(),
 			(ArrayList<Stuff>) ressources.getStuffs(),
 			timeFailedTxtValue,
+			errorTextField,
 			currentDungeon.getId()
 		);
 	}
@@ -177,8 +161,6 @@ public class window {
 			for(int y = 0; y < dungeonSize; y++) {
 				int placable = map.get(x * dungeonSize + y);
 				JButton btn = dungeonMapButtons.get(x * dungeonSize + y);
-				String path = "ressources/icon" + placable + ".png";
-				File f = new File(path);
 				if(placable < 1000) {
 					btn.setIcon(terrainIds.contains(placable) ? terrainIcon.get(terrainIds.indexOf(placable)) : imgNotFound);
 				}else if(placable < 3000) {
@@ -203,10 +185,10 @@ public class window {
 	private boolean loadDatas() {
 		try {
 			// GET ressources
-			HttpURLConnection con = createApiRequest("GET", "http://localhost:8080/ressources", new HashMap<>());
+			HttpURLConnection con = new CreateApiRequest("GET", "http://localhost:8080/ressources", new HashMap<>()).getCon();
 			int status = con.getResponseCode();
 			if(status != 200) {
-				System.out.println("Cannot get ressources");
+				errorTextField.setText("Cannot get ressources");
 				return false;
 			}
 			InputStream iStream = con.getInputStream();
@@ -223,10 +205,10 @@ public class window {
 			ressources = objectMapper.readValue(content.toString(), RessourcesFull.class);
 
 			// GET dungeons
-			HttpURLConnection con2 = createApiRequest("GET", "http://localhost:8080/dungeons/", new HashMap<>());
+			HttpURLConnection con2 = new CreateApiRequest("GET", "http://localhost:8080/dungeons/", new HashMap<>()).getCon();
 			int status2 = con2.getResponseCode();
-			if(status != 200) {
-				System.out.println("Cannot get dungeons");
+			if(status2 < 200 || status2 >= 300) {
+				errorTextField.setText("Cannot get dungeons");
 				return false;
 			}
 			InputStream iStream2 = con2.getInputStream();
@@ -242,8 +224,7 @@ public class window {
 			dungeonList = objectMapper.readValue(contentDungeons.toString(), new TypeReference<List<Dungeon>>(){});
 			
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			errorTextField.setText("API not responding");
 			return false;
 		}
 		
@@ -279,65 +260,6 @@ public class window {
 		}
 		changeDungeon(0);
 	}
-	
-	/*
-	 * Map<String, String> parameters = new HashMap<>() -> url parametres, ?limit=10&offset=10
-	 */
-	private HttpURLConnection createApiRequest(String method, String inUrl, Map<String, String> parameters) throws Exception {
-		//Create params string
-		StringBuilder paramStringBuilder = new StringBuilder();
-        for (Map.Entry<String, String> entry : parameters.entrySet()) {
-          paramStringBuilder.append(URLEncoder.encode(entry.getKey(), "UTF-8"));
-          paramStringBuilder.append("=");
-          paramStringBuilder.append(URLEncoder.encode(entry.getValue(), "UTF-8"));
-          paramStringBuilder.append("&");
-        }
-        String paramString = paramStringBuilder.toString();
-        paramString = paramString.length() > 0 ? paramString.substring(0, paramString.length() - 1) : paramString;
-        
-        //Create Request
-		URL url = parameters.size() == 0 ? new URL(inUrl) : new URL(inUrl + "?" + paramString);
-		HttpURLConnection con = (HttpURLConnection) (url).openConnection();
-        con.setDoInput(true);
-        con.setDoOutput(true);
-        con.setRequestMethod(method);
-        con.setRequestProperty("Content-Type", "application/json");
-        
-		return con;
-        
-        /*
-        POST write body
-        con.getOutputStream().write(jsonBodyString.getBytes());
-		BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
-        String inputLine;
-
-        while ((inputLine = in.readLine()) != null)
-            System.out.println(inputLine);
-        in.close();
-        
-        */
-        
-        /*
-		GET Read response
-		int status = con.getResponseCode();
-		InputStream bb = con.getInputStream();
-		InputStreamReader aa = new InputStreamReader(bb);
-		BufferedReader in = new BufferedReader(aa);
-		String inputLine;
-		StringBuffer content = new StringBuffer();
-		while ((inputLine = in.readLine()) != null) {
-		    content.append(inputLine);
-		}
-		in.close();
-		con.disconnect();
-		
-		
-		System.out.println(content.toString());
-		*/
-		
-	}
-
-
 	
 	
 	/**
@@ -412,19 +334,6 @@ public class window {
 //		stuffsTxtValue.setBounds(105, 140, 100, 20);
 //		infosPanel.add(stuffsTxtValue);
 		
-//		JTextField lvlDiffTxt = new JTextField();
-//		lvlDiffTxt.setText("Level Diff.");
-//		lvlDiffTxt.setEditable(false);
-//		lvlDiffTxt.setColumns(10);
-//		lvlDiffTxt.setBounds(0, 190, 100, 20);
-//		infosPanel.add(lvlDiffTxt);
-		
-//		lvlDiffTxtValue = new JTextField("0");
-//		lvlDiffTxtValue.setEditable(false);
-//		lvlDiffTxtValue.setColumns(10);
-//		lvlDiffTxtValue.setBounds(105, 190, 100, 20);
-//		infosPanel.add(lvlDiffTxtValue);
-		
 		
 		
 		// Panel Center
@@ -444,6 +353,7 @@ public class window {
 		dungeonNameTf.setBounds(0, 0, 750, 60);
 		centerTopPanel.add(dungeonNameTf);
 		dungeonNameTf.setColumns(10);
+		dungeonNameTf.setEditable(false);
 		
 		
 		mainPanel.add(centerPanel);
@@ -479,6 +389,14 @@ public class window {
 			}
 		});
 		centerBottomPanel.add(nextDungeonBtn);
+		
+
+		errorTextField = new JTextField();
+		errorTextField.setText("");
+		errorTextField.setEditable(false);
+		errorTextField.setColumns(10);
+		errorTextField.setBounds(486, 0, 260, 35);
+		centerBottomPanel.add(errorTextField);
 		
 		
 		
