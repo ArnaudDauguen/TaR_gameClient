@@ -18,7 +18,7 @@ import beans.Terrain;
 
 public class Dijkstra {
 	
-	private int entrenceCaseId, weight = 0, size = 10, throneTerrainId = 3, totalDamage = 0, framePerSecond = 30, aiHp, defaultAiHp = 100;
+	private int entranceCaseId, weight = 0, size = 10, throneTerrainId = 3, totalDamage = 0, framePerSecond = 30, aiHp, defaultAiHp = 100;
 	private ArrayList<Integer> path, map, weightMap, aiStuff;
 	private ArrayList<Terrain> terrains;
 	private ArrayList<Monster> monsters;
@@ -30,8 +30,8 @@ public class Dijkstra {
 	private JTextField nbFails;
 	
 	
-	public Dijkstra(int entrenceCaseId, int throneTerrainId, int size, ArrayList<Integer> aiStuff, ArrayList<Integer> map, ArrayList<JButton> btnMap, ArrayList<Terrain> terrains, ArrayList<Monster> monsters, ArrayList<Stuff> stuffList, JTextField nbFails) {
-		this.entrenceCaseId = entrenceCaseId;
+	public Dijkstra(int entranceCaseId, int throneTerrainId, int size, ArrayList<Integer> aiStuff, ArrayList<Integer> map, ArrayList<JButton> btnMap, ArrayList<Terrain> terrains, ArrayList<Monster> monsters, ArrayList<Stuff> stuffList, JTextField nbFails) {
+		this.entranceCaseId = entranceCaseId;
 		this.throneTerrainId = throneTerrainId;
 		this.size = size;
 		this.map = map;
@@ -50,8 +50,9 @@ public class Dijkstra {
 			public void run() {
 				boolean ended = false;
 				while(!ended) {
+					//reset path to entrance
 					path = new ArrayList<Integer>();
-					path.add(entrenceCaseId);
+					path.add(entranceCaseId);
 					weight = 0;
 					try {
 						ended = generateRoad();
@@ -84,11 +85,6 @@ public class Dijkstra {
 				}
 			}
 		}
-		aiStuff.stream().map(stuffId -> totalDamage += (
-				stuffs.stream()
-				.filter(stuff -> { return stuff.getId() >= stuffId && stuff.getId() <= stuffId;}) // can't check directly with '=='
-				.collect(Collectors.toList())
-			).get(0).getAttack());
 		if(totalDamage == 0) {
 			System.out.println("Some equipements are missing, AI will figth in godmode");
 			totalDamage = Integer.MAX_VALUE;
@@ -121,18 +117,14 @@ public class Dijkstra {
 			
 			
 			path.add(newCaseIdToTravel);
-			Icon tmpIcon = btnMap.get(newCaseIdToTravel).getIcon();
-			btnMap.get(newCaseIdToTravel).setIcon(playerIcon);
-			btnMap.get(path.get(path.size()-2)).setIcon(lastCaseIcon);
-			lastCaseIcon = tmpIcon;
-			
-			btnMap.get(newCaseIdToTravel).revalidate();
-			btnMap.get(newCaseIdToTravel).repaint();
+			lastCaseIcon = moovePlayerIcon(lastCaseIcon, newCaseIdToTravel);
 			
 			//fight
 			if(map.get(newCaseIdToTravel) > 999 && map.get(newCaseIdToTravel) < 3000) {
 				//start new path is enemy never met
-				pathComplete = weightMap.get(newCaseIdToTravel) == 0;
+				if(weightMap.get(newCaseIdToTravel) == 0) {
+					pathComplete = true;
+				}
 				ArrayList<Monster> potentialEnemies = (ArrayList<Monster>) monsters.stream().filter(m -> {
 					if(m.getId() >= map.get(newCaseIdToTravel) && m.getId() <= map.get(newCaseIdToTravel)) // to check if equals
 						return true;
@@ -189,28 +181,49 @@ public class Dijkstra {
 			for(int caseId : path) {
 				weightMap.set(caseId, weightMap.get(caseId) + weight);
 			}
-			nbFails.setText(String.valueOf(Integer.parseInt(nbFails.getText()) +1));
 			Thread.sleep(500);
-			// rerender lastCase
-			btnMap.get(path.get(path.size()-1)).setIcon(lastCaseIcon);
+			updateUi(lastCaseIcon);
 		}else {
 			for(int caseId : path) {
 				weightMap.set(caseId, weight);
 			}
 		}
-		
-//		System.out.println("new weight : " + weight);
-//		for(int x = 0; x < size; x++) {
-//			for(int y = 0; y < size; y++) {
-//				System.out.print(weightMap.get(x*size +y) + " ");
-//			}
-//			System.out.println();
-//		}
-//		System.out.println();
-		
-		
-		
 		return response;
+	}
+	
+	
+	
+	private Icon moovePlayerIcon(Icon lastCaseIcon, int newCaseIdToTravel) {
+		Icon tmpIcon = btnMap.get(newCaseIdToTravel).getIcon();
+		btnMap.get(newCaseIdToTravel).setIcon(playerIcon);
+		btnMap.get(path.get(path.size()-2)).setIcon(lastCaseIcon);
+		lastCaseIcon = tmpIcon;
+		
+		btnMap.get(newCaseIdToTravel).revalidate();
+		btnMap.get(newCaseIdToTravel).repaint();
+		
+		return lastCaseIcon;
+	}
+	
+	
+	
+	private void updateUi(Icon lastCaseIcon) {
+		nbFails.setText(String.valueOf(Integer.parseInt(nbFails.getText()) +1));
+		// rerender lastCase
+		btnMap.get(path.get(path.size()-1)).setIcon(lastCaseIcon);
+	}
+	
+	
+	
+	public void printWeightMap() {
+		System.out.println("new weight : " + weight);
+		for(int x = 0; x < size; x++) {
+			for(int y = 0; y < size; y++) {
+				System.out.print(weightMap.get(x*size +y) + " ");
+			}
+			System.out.println();
+		}
+		System.out.println();
 	}
 	
 	
