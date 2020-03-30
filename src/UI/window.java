@@ -103,6 +103,9 @@ public class window {
 	}
 	
 	private void simulate() {
+		if(ressources == null) {
+			return;
+		}
 		int entranceTerrainId = 1; //default wall id is 1
 		for(Terrain t : ressources.getTerrains()) {
 			if(t.getName().equals("entrance")) {
