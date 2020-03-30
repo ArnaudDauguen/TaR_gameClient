@@ -1,8 +1,16 @@
 package AI;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -11,14 +19,15 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JTextField;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import DTO.Dungeon;
-import beans.Monster;
-import beans.Stuff;
-import beans.Terrain;
+import beans.*;
 
 public class Dijkstra {
 	
-	private int entranceCaseId, weight = 0, size = 10, throneTerrainId = 3, totalDamage = 0, framePerSecond = 30, aiHp, defaultAiHp = 100;
+	private int entranceCaseId, weight = 0, size = 10, throneTerrainId = 3, totalDamage = 0, framePerSecond = 30, aiHp, defaultAiHp = 100, dungeonId = 0;
 	private ArrayList<Integer> path, map, weightMap, aiStuff;
 	private ArrayList<Terrain> terrains;
 	private ArrayList<Monster> monsters;
@@ -30,7 +39,7 @@ public class Dijkstra {
 	private JTextField nbFails;
 	
 	
-	public Dijkstra(int entranceCaseId, int throneTerrainId, int size, ArrayList<Integer> aiStuff, ArrayList<Integer> map, ArrayList<JButton> btnMap, ArrayList<Terrain> terrains, ArrayList<Monster> monsters, ArrayList<Stuff> stuffList, JTextField nbFails) {
+	public Dijkstra(int entranceCaseId, int throneTerrainId, int size, ArrayList<Integer> aiStuff, ArrayList<Integer> map, ArrayList<JButton> btnMap, ArrayList<Terrain> terrains, ArrayList<Monster> monsters, ArrayList<Stuff> stuffList, JTextField nbFails, int dungeonId) {
 		this.entranceCaseId = entranceCaseId;
 		this.throneTerrainId = throneTerrainId;
 		this.size = size;
@@ -42,6 +51,7 @@ public class Dijkstra {
 		this.stuffs = stuffList;
 		this.btnMap = btnMap;
 		this.nbFails = nbFails;
+		this.dungeonId = dungeonId;
 
 		initialize();
 		
@@ -188,6 +198,9 @@ public class Dijkstra {
 				weightMap.set(caseId, weight);
 			}
 		}
+		
+		//save path
+		System.out.println(savePath() ? "Path saved" : "Cannot save path");
 		return response;
 	}
 	
@@ -213,6 +226,43 @@ public class Dijkstra {
 		btnMap.get(path.get(path.size()-1)).setIcon(lastCaseIcon);
 	}
 	
+	
+	private boolean savePath() {
+		try {
+			//convert DTO to JSON string
+			ObjectMapper mapper = new ObjectMapper();
+			String jsonString = mapper.writeValueAsString(this);
+
+			//call to API
+			try {
+				HttpURLConnection con = new CreateApiRequest("POST", "http://localhost:8080/dungeons/" + dungeonId + "/path", new HashMap<>()).getCon();
+				con.getOutputStream().write(jsonString.getBytes());
+				
+				//read response
+				int status = con.getResponseCode();
+				InputStream inStream = con.getInputStream();
+				InputStreamReader inStreamReader = new InputStreamReader(inStream);
+				BufferedReader in = new BufferedReader(inStreamReader);
+				String inputLine;
+				StringBuffer content = new StringBuffer();
+				while ((inputLine = in.readLine()) != null) {
+				    content.append(inputLine);
+				}
+				in.close();
+				con.disconnect();
+		        
+		        
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				return false;
+			}
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+			return false;
+		}
+		return true;
+	}
 	
 	
 	public void printWeightMap() {

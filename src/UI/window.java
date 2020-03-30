@@ -155,7 +155,8 @@ public class window {
 			(ArrayList<Terrain>) ressources.getTerrains(),
 			(ArrayList<Monster>) ressources.getMonsters(),
 			(ArrayList<Stuff>) ressources.getStuffs(),
-			timeFailedTxtValue
+			timeFailedTxtValue,
+			currentDungeon.getId()
 		);
 	}
 	
@@ -204,8 +205,10 @@ public class window {
 			// GET ressources
 			HttpURLConnection con = createApiRequest("GET", "http://localhost:8080/ressources", new HashMap<>());
 			int status = con.getResponseCode();
-			if(status != 200) 
+			if(status != 200) {
+				System.out.println("Cannot get ressources");
 				return false;
+			}
 			InputStream iStream = con.getInputStream();
 			InputStreamReader reader = new InputStreamReader(iStream);
 			BufferedReader in = new BufferedReader(reader);
@@ -222,8 +225,10 @@ public class window {
 			// GET dungeons
 			HttpURLConnection con2 = createApiRequest("GET", "http://localhost:8080/dungeons/", new HashMap<>());
 			int status2 = con2.getResponseCode();
-			if(status2 != 200)
+			if(status != 200) {
+				System.out.println("Cannot get dungeons");
 				return false;
+			}
 			InputStream iStream2 = con2.getInputStream();
 			InputStreamReader reader2 = new InputStreamReader(iStream2);
 			BufferedReader in2 = new BufferedReader(reader2);
